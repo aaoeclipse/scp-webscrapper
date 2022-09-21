@@ -8,7 +8,7 @@ from threading import Thread, Lock
 
 webpage = 'https://scp-wiki.wikidot.com'
 
-LIMIT_THREADS = 100
+LIMIT_THREADS = 10
 
 df = pd.DataFrame()
 
@@ -23,7 +23,7 @@ def state_manager(state: int, next: bool) -> bool:
 
 def add_to_df(new_df: pd.DataFrame) -> None:
     global df
-    df = df.append(new_df, ignore_index=True)
+    df = pd.concat([df, new_df], ignore_index=True, sort=False)
 
 
 def multiple_scp_scrape(ids: list) -> pd.DataFrame:
@@ -37,7 +37,9 @@ def multiple_scp_scrape(ids: list) -> pd.DataFrame:
     df = pd.DataFrame()
 
     if len(ids) > LIMIT_THREADS:
-        for x in range(math.ceil(len(ids) // LIMIT_THREADS)):
+
+        for x in range(math.ceil(len(ids) // LIMIT_THREADS)+1):
+
             if ((x+1)*LIMIT_THREADS > len(ids)):
                 tmp = ids[(x*LIMIT_THREADS):len(ids)]
             else:
@@ -48,7 +50,7 @@ def multiple_scp_scrape(ids: list) -> pd.DataFrame:
 
             for i in range(len(tmp)):
                 threads[i] = Thread(target=scrape_scp, args=(  # type: ignore
-                    ids[i], lock))  # type: ignore
+                    ids[(x*LIMIT_THREADS) + i], lock))  # type: ignore
                 threads[i].start()  # type: ignore
 
             for i in range(len(tmp)):
@@ -76,6 +78,11 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
     # empty dataframe
     df = pd.DataFrame()
 
+    if int(id) <= 9:
+        id = f"00{id}"
+    elif int(id) <= 99:
+        id = f"0{id}"
+
     # Go to content
     page = requests.get(f'{webpage}/scp-{id}')
 
@@ -95,6 +102,7 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
     containment_procedure = ""
     desc = ""
     image = None
+    rating = ""
 
     # GET CONTET OF THE PAGE
 
@@ -108,9 +116,14 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
 
     last_category = ""
 
+    # Getting Image
     images = scp_info.find('img')
     if images:
         image = images['src']
+
+    # Getting Rating
+    rating_span = scp_info.find("span", {"class": "number prw54353"})
+    rating = int(rating_span.contents[0])
 
     for p in scp_info.find_all('p'):
         # If there is just text, then it continues from the previous category
@@ -123,42 +136,40 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
                 result = p.contents[0]
 
             if last_category == 'Description:':
-                desc += f'\n{result}'
+                desc += str(result)
             elif last_category == "Special Containment Procedures:":
-                containment_procedure += f'\n{result}'
+                containment_procedure += str(result)
 
         element = p.find('strong')
 
         if not element:
             continue
 
-        tmp = element.contents[0].find('strong') 
-        if tmp:
-            name = tmp.contents[0]
-        else:
-            name = element.contents[0].strip()
+        name = element.contents[0]
 
         if name == 'Item #:':
             item = p.contents[1].strip()
         elif name == 'Object Class:':
-            object_class = p.contents[1].strip()
+            object_class = p.contents[1].strip().lower()
         elif name == 'Description:':
-            desc += '\n'.join(p.contents[1:])
+            desc += str(p.contents[1])
             last_category = 'Description:'
-        elif name == "Special Containment Procedures:":
-            containment_procedure += '\n'.join(p.contents[1:])
+        elif name == "Special Containment Procedures:" or name == "Special Containment Procedure:":
+            containment_procedure += str(p.contents[1])
             last_category = 'Special Containment Procedures:'
 
     scp = SCP(title, item, object_class,
-              containment_procedure, desc, image)
+              containment_procedure, desc, rating, image)
 
-    df = df.append(scp.get_obj(), ignore_index=True)
+    df = pd.concat([df, scp.get_obj()], ignore_index=True, sort=False)
 
-    # Lock the dataframe when writing on it
-    # to stop others to write at the same time.
+    # Lock the data frame when writing on it
+    # to stop other threads to write at the same time.
     if lock:
         lock.acquire()
         add_to_df(df)
         lock.release()
     else:
         return df
+
+# scrape_scp("23")
