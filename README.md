@@ -1,9 +1,8 @@
 # SCP Web Scrapper
+SCP Web Scrapper parse the number of scp with threads and generates a csv file or it can also save it in a sqlite file.
 
-This project is aimed to facilitate the access to the SCP foundation archives. This is one step of many to which it's used to generate an API for developers to access the SCP without having the hassle of web scrapping.
-
-# Workflow Entire Project
-1. SCP Web Scrapper
+# Why?
+This project is aimed to facilitate the access to the SCP foundation archives. For developers and data scientists it will be great to have the scp foundation archives in a easy to access way in order to extract useful information.
 
 # Setup
 1. python => 3
@@ -11,4 +10,4 @@ This project is aimed to facilitate the access to the SCP foundation archives. T
 3. python3 main.py
 
 # Database
-By default it uses SQLite, and it saves it in a directory above (this is )
+The file database_manager can be used to save the result in a sql database if the desired output is to be in sqlite.

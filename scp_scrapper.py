@@ -135,6 +135,9 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
             else:
                 result = p.contents[0]
 
+            if result == "Cite this page as:":
+                continue
+
             if last_category == 'Description:':
                 desc += str(result)
             elif last_category == "Special Containment Procedures:":
@@ -172,4 +175,5 @@ def scrape_scp(id: str, lock=None) -> pd.DataFrame:
     else:
         return df
 
-# scrape_scp("23")
+# Manual Test of SCP
+# print(scrape_scp("2").desc.values)
